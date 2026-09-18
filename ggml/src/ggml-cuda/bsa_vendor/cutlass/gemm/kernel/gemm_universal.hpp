@@ -68,6 +68,13 @@ class GemmUniversal;
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "cutlass/gemm/kernel/sm70_gemm.hpp"
+// [deployment patch] The Hopper (SM90) kernel headers below are only usable when compiling for
+// sm_90a, but CUTLASS defines CUTLASS_ARCH_MMA_SM90_SUPPORTED for every CUDA >= 12 compilation, so
+// they are otherwise parsed for every target. MSVC 19.44 cannot parse
+// sm90_gemm_tma_warpspecialized_pingpong.hpp (C4346/C2061 on OrderedSequenceBarrier::SharedStorage)
+// and the failure happens during parsing, before any arch filtering. Builds that target sm_86 (or
+// anything below sm_90) can define CUTLASS_DISABLE_SM90_KERNELS to skip them entirely.
+#if !defined(CUTLASS_DISABLE_SM90_KERNELS)
 #include "cutlass/gemm/kernel/sm90_gemm_tma.hpp"
 #include "cutlass/gemm/kernel/sm90_gemm_warpspecialized.hpp"
 #include "cutlass/gemm/kernel/sm90_gemm_warpspecialized_pingpong.hpp"
@@ -75,4 +82,5 @@ class GemmUniversal;
 #include "cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized.hpp"
 #include "cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_pingpong.hpp"
 #include "cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_cooperative.hpp"
+#endif
 ////////////////////////////////////////////////////////////////////////////////
