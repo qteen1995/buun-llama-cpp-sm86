@@ -645,10 +645,14 @@ void ggml_cuda_mul_mat_exl3(ggml_backend_cuda_context & ctx, const ggml_tensor *
         static_cast<const float *>(src1->data), suh, xh.get(), k);
 
 #if !defined(GGML_USE_HIP)
-    // Measured SM86 dense mul1 path: consume shared decoded tiles rather than
-    // reconstructing the entire projection before GEMM. Other formats/devices
-    // retain the qualified fallback below.
-    if (exl3_sm86_available(ggml_cuda_info().devices[ctx.device].cc) && bits == 4 && cb == 2 && m >= 17) {
+    // Consume decoded shared tiles instead of reconstructing the entire
+    // projection. SM75 wins at short batches, and up to 128 rows on wide
+    // outputs; its narrower shapes favor cuBLAS sooner than SM86's do.
+    const int cc_gemm = ggml_cuda_info().devices[ctx.device].cc;
+    const bool turing_gemm = ggml_cuda_exl3_turing_gemm_supported(
+        cc_gemm, ggml_cuda_highest_compiled_arch(cc_gemm), m, n, k);
+    if (bits == 4 && cb == 2 &&
+            ((exl3_sm86_available(cc_gemm) && m >= 17) || turing_gemm)) {
         const uint8_t * weights = static_cast<const uint8_t *>(src0->data);
         const int nsm = ggml_cuda_info().devices[ctx.device].nsm;
         // Short batches benefit from smaller row tiles. Keep enough blocks for
